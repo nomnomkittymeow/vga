@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VGA Timing Studio — FPGA Engineering Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-base:    #080a0d;
+  --bg-panel:   #0d1018;
+  --bg-card:    #111520;
+  --bg-elev:    #181d2a;
+  --bg-hover:   #1f2635;
+  --cyan:       #22d3ee;
+  --cyan-glow:  rgba(34,211,238,0.18);
+  --cyan-dim:   rgba(34,211,238,0.08);
+  --blue:       #6fa8ff;
+  --green:      #4ade80;
+  --green-dim:  rgba(74,222,128,0.12);
+  --amber:      #fbbf24;
+  --amber-dim:  rgba(251,191,36,0.12);
+  --red:        #f87171;
+  --red-dim:    rgba(248,113,113,0.12);
+  --purple:     #c084fc;
+  --text:       #dde5f0;
+  --text2:      #7d8fa8;
+  --text3:      #3d4b60;
+  --border:     #151e2e;
+  --border2:    #232f44;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;background:var(--bg-base);color:var(--text);line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--cyan)}
+
+/* ─── LAYOUT ─────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;height:100vh}
+.hdr{display:flex;align-items:center;gap:12px;height:44px;background:var(--bg-panel);border-bottom:1px solid var(--border);padding:0 16px;flex-shrink:0;user-select:none}
+.hdr-title{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--cyan);text-shadow:0 0 20px rgba(34,211,238,.4)}
+.hdr-sub{font-size:10px;color:var(--text3);letter-spacing:.08em}
+.hdr-sep{flex:1}
+.hdr-pill{font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid var(--border2);color:var(--text2);letter-spacing:.05em}
+.hdr-pill.live{border-color:var(--green);color:var(--green);animation:pulse-border 2s infinite}
+@keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.3)}50%{box-shadow:0 0 0 4px rgba(74,222,128,0)}}
+.hdr-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+.workspace{display:flex;flex:1;overflow:hidden}
+
+/* ─── PANELS ──────────────────────────────────────────── */
+.lpanel{width:274px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:10px;background:var(--bg-panel)}
+.cpanel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.rpanel{width:380px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;padding:10px;background:var(--bg-panel)}
+.term{height:148px;flex-shrink:0;border-top:1px solid var(--border);background:#060709;overflow-y:auto;padding:7px 14px;font-size:11px}
+
+/* ─── CARDS ───────────────────────────────────────────── */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;margin-bottom:9px}
+.card-hdr{padding:7px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text2)}
+.card-hdr .icon{width:14px;height:14px;opacity:.8}
+.card-body{padding:10px 11px}
+
+/* ─── FORM CONTROLS ───────────────────────────────────── */
+.lbl{display:block;font-size:10px;color:var(--text2);margin-bottom:3px;letter-spacing:.06em}
+input[type=text],input[type=number],select{
+  width:100%;background:var(--bg-elev);border:1px solid var(--border2);border-radius:4px;
+  color:var(--text);padding:5px 8px;font-family:inherit;font-size:11px;outline:none;margin-bottom:7px;transition:border-color .15s,box-shadow .15s}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan-dim)}
+input[type=range]{width:100%;accent-color:var(--cyan);cursor:pointer;margin:2px 0 6px}
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.input-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+
+/* ─── PRESET BUTTONS ──────────────────────────────────── */
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:7px}
+.pbtn{background:var(--bg-elev);border:1px solid var(--border2);border-radius:4px;color:var(--text2);
+  padding:5px 6px;font-family:inherit;font-size:10px;cursor:pointer;text-align:center;
+  transition:all .15s;line-height:1.3}
+.pbtn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.pbtn.act{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);box-shadow:0 0 8px rgba(34,211,238,.15)}
+.pbtn .pstd{font-size:9px;color:var(--text3);display:block}
+.pbtn.act .pstd{color:rgba(34,211,238,.5)}
+
+/* ─── TOGGLE ──────────────────────────────────────────── */
+.toggle-row{display:flex;gap:4px;margin-bottom:7px}
+.tglbtn{flex:1;background:var(--bg-elev);border:1px solid var(--border2);border-radius:4px;
+  color:var(--text2);padding:4px 4px;font-family:inherit;font-size:10px;cursor:pointer;text-align:center;transition:all .12s}
+.tglbtn:hover{border-color:var(--blue);color:var(--blue)}
+.tglbtn.act{background:rgba(111,168,255,.1);border-color:var(--blue);color:var(--blue)}
+.tglbtn.act-red{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.tglbtn.act-grn{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+
+/* ─── BUTTONS ─────────────────────────────────────────── */
+.btn{background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--text);
+  padding:5px 11px;font-family:inherit;font-size:11px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.btn-cyan{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan)}
+.btn-cyan:hover{background:rgba(34,211,238,.22)}
+.btn-green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-row{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ─── STATS ───────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:9px}
+.stat-card{background:var(--bg-elev);border:1px solid var(--border2);border-radius:5px;padding:8px 10px}
+.stat-val{font-size:17px;font-weight:700;color:var(--cyan);line-height:1.1}
+.stat-val .unit{font-size:11px;font-weight:400;color:var(--text2);margin-left:2px}
+.stat-lbl{font-size:9px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-top:2px}
+.stat-val.green{color:var(--green)}.stat-val.amber{color:var(--amber)}.stat-val.blue{color:var(--blue)}
+
+/* ─── TIMING TABLE ────────────────────────────────────── */
+.ttable{width:100%;border-collapse:collapse}
+.ttable tr{border-bottom:1px solid var(--border)}
+.ttable tr:last-child{border-bottom:none}
+.ttable td{padding:4px 7px;font-size:11px}
+.ttable td:nth-child(1){color:var(--text2);font-size:10px;width:120px}
+.ttable td:nth-child(2){color:var(--text);font-weight:500;text-align:right}
+.ttable td:nth-child(3){color:var(--text3);font-size:10px;text-align:right;padding-left:4px}
+.ttable tr:hover td{background:var(--bg-hover)}
+
+/* ─── CODE VIEWER ─────────────────────────────────────── */
+.code-tabs{display:flex;background:var(--bg-base);border-bottom:1px solid var(--border)}
+.ctab{padding:6px 14px;font-size:11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;letter-spacing:.04em}
+.ctab:hover{color:var(--text2)}.ctab.act{color:var(--cyan);border-bottom-color:var(--cyan)}
+.code-wrap{background:#06080b;border-radius:0 0 5px 5px;overflow:auto;max-height:400px;position:relative}
+.code-copy{position:sticky;top:6px;float:right;margin:6px;z-index:5}
+pre.code{padding:14px;font-size:10.5px;line-height:1.8;white-space:pre;tab-size:2;color:#a8b8cc}
+/* Syntax */
+.kw{color:#c792ea}.mod{color:#82aaff}.num{color:#f78c6c}.cmt{color:#3d5270;font-style:italic}
+.str{color:#c3e88d}.param{color:#ffcb6b}.sig{color:#89ddff}.dir{color:#ff5370}.op{color:#89ddff}
+.mac{color:#ff5370}.lit{color:#f78c6c}
+
+/* ─── BADGES ──────────────────────────────────────────── */
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9.5px;font-weight:600;letter-spacing:.04em}
+.b-cyan{background:var(--cyan-dim);border:1px solid rgba(34,211,238,.25);color:var(--cyan)}
+.b-grn{background:var(--green-dim);border:1px solid rgba(74,222,128,.2);color:var(--green)}
+.b-amb{background:var(--amber-dim);border:1px solid rgba(251,191,36,.2);color:var(--amber)}
+.b-red{background:var(--red-dim);border:1px solid rgba(248,113,113,.2);color:var(--red)}
+.b-blue{background:rgba(111,168,255,.1);border:1px solid rgba(111,168,255,.2);color:var(--blue)}
+
+/* ─── CENTER PANEL ────────────────────────────────────── */
+.cpanel-top{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.wave-area{position:relative;background:var(--bg-card);border-bottom:1px solid var(--border)}
+canvas{display:block;width:100%;height:100%}
+#waveCanvas{width:100%}
+.crt-area{flex:1;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0e1520 0%,var(--bg-base) 100%);position:relative;overflow:hidden;min-height:200px}
+.crt-label{position:absolute;top:8px;left:12px;font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.scanlines-overlay{position:absolute;inset:0;pointer-events:none;z-index:10;
+  background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.13) 1px,rgba(0,0,0,.13) 2px);
+  opacity:.6;border-radius:8px}
+
+/* ─── TERMINAL ────────────────────────────────────────── */
+.term-hdr{display:flex;align-items:center;gap:8px;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.term-title{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);font-weight:600}
+.log-line{font-size:10.5px;line-height:1.7;display:flex;gap:8px}
+.log-ts{color:var(--text3);flex-shrink:0}.log-tag{flex-shrink:0;font-weight:600}
+.log-msg{color:var(--text2)}
+.li{color:var(--cyan)}.lw{color:var(--amber)}.le{color:var(--red)}.lo{color:var(--green)}
+.sep{height:1px;background:var(--border);margin:8px 0}
+
+/* ─── MISC ────────────────────────────────────────────── */
+.range-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:-4px;margin-bottom:4px}
+.refresh-val{font-size:18px;font-weight:700;color:var(--cyan);text-align:center;margin:2px 0 6px}
+.progress-bar{height:4px;background:var(--bg-elev);border-radius:2px;margin:4px 0;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;background:var(--cyan);transition:width .3s}
+.progress-fill.amber{background:var(--amber)}.progress-fill.red{background:var(--red)}.progress-fill.green{background:var(--green)}
+.row2{display:flex;gap:6px;align-items:center}
+.flex1{flex:1}
+.section-title{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:600;margin-bottom:6px}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px}
+.tool-val{background:var(--bg-elev);border:1px solid var(--border2);border-radius:4px;padding:6px 8px}
+.tool-val .tv{font-size:13px;font-weight:700;color:var(--text)}.tool-val .tl{font-size:9px;color:var(--text3)}
+.pol-indicator{display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600}
+.pol-neg{background:var(--red-dim);color:var(--red)}.pol-pos{background:var(--green-dim);color:var(--green)}
+
+/* Animated gradient border on key card */
+@keyframes gradient-border{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.card-glow{background:linear-gradient(var(--bg-card),var(--bg-card)) padding-box,
+  linear-gradient(90deg,var(--cyan),var(--blue),var(--purple),var(--cyan)) border-box;
+  border:1px solid transparent;animation:gradient-border 4s ease infinite;background-size:200%}
+
+/* Tooltip */
+.tip{position:relative;display:inline-flex;align-items:center}
+.tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);
+  background:#1a2035;border:1px solid var(--border2);color:var(--text2);padding:4px 8px;border-radius:4px;
+  font-size:10px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100}
+.tip:hover::after{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ HEADER ═══════════════════════════════════════════ -->
+<div class="hdr">
+  <div class="hdr-dot"></div>
+  <div>
+    <div class="hdr-title">⬡ VGA TIMING STUDIO</div>
+  </div>
+  <div class="hdr-sub">FPGA Engineering Lab v2.4.1</div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-pill" id="stdBadge">VGA</div>
+  <div class="hdr-pill live" id="liveBadge">● LIVE</div>
+  <div class="hdr-pill" id="clkBadge">25.175 MHz</div>
+  <div class="hdr-pill" id="resBadge">640 × 480</div>
+</div>
+
+<!-- ═══ WORKSPACE ════════════════════════════════════════ -->
+<div class="workspace">
+
+<!-- ─── LEFT PANEL ──────────────────────────────────────── -->
+<div class="lpanel">
+
+  <!-- Presets -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      Timing Presets
+    </div>
+    <div class="card-body">
+      <div class="preset-grid" id="presetGrid"></div>
+    </div>
+  </div>
+
+  <!-- Resolution -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1"/><line x1="5" y1="13" x2="5" y2="15"/><line x1="11" y1="13" x2="11" y2="15"/><line x1="3" y1="15" x2="13" y2="15"/></svg>
+      Resolution &amp; Timing
+    </div>
+    <div class="card-body">
+      <div class="input-row">
+        <div><label class="lbl">H ACTIVE</label><input type="number" id="hA" min="1" value="640"></div>
+        <div><label class="lbl">V ACTIVE</label><input type="number" id="vA" min="1" value="480"></div>
+      </div>
+
+      <div class="section-title">Horizontal Blanking</div>
+      <div class="input-row-3">
+        <div><label class="lbl">H FRONT</label><input type="number" id="hFP" min="1" value="16"></div>
+        <div><label class="lbl">H SYNC</label><input type="number" id="hS" min="1" value="96"></div>
+        <div><label class="lbl">H BACK</label><input type="number" id="hBP" min="1" value="48"></div>
+      </div>
+
+      <div class="section-title">Vertical Blanking</div>
+      <div class="input-row-3">
+        <div><label class="lbl">V FRONT</label><input type="number" id="vFP" min="1" value="10"></div>
+        <div><label class="lbl">V SYNC</label><input type="number" id="vS" min="1" value="2"></div>
+        <div><label class="lbl">V BACK</label><input type="number" id="vBP" min="1" value="33"></div>
+      </div>
+
+      <div class="section-title">Sync Polarity</div>
+      <div class="row2">
+        <div style="flex:1">
+          <label class="lbl">HSYNC</label>
+          <div class="toggle-row">
+            <button class="tglbtn" id="hPolN" onclick="setPol('h','neg')">NEG (−)</button>
+            <button class="tglbtn" id="hPolP" onclick="setPol('h','pos')">POS (+)</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <label class="lbl">VSYNC</label>
+          <div class="toggle-row">
+            <button class="tglbtn" id="vPolN" onclick="setPol('v','neg')">NEG (−)</button>
+            <button class="tglbtn" id="vPolP" onclick="setPol('v','pos')">POS (+)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Refresh Rate -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><polyline points="8,4 8,8 11,10"/></svg>
+      Refresh Rate
+    </div>
+    <div class="card-body">
+      <div class="refresh-val"><span id="refreshDisp">60</span> Hz</div>
+      <input type="range" id="refreshSlider" min="24" max="240" value="60" step="1">
+      <div class="range-row"><span>24 Hz</span><span>240 Hz</span></div>
+      <div class="preset-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <button class="pbtn" onclick="setRefresh(30)">30</button>
+        <button class="pbtn act" onclick="setRefresh(60)">60</button>
+        <button class="pbtn" onclick="setRefresh(75)">75</button>
+        <button class="pbtn" onclick="setRefresh(120)">120</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FPGA Target -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="1"/><line x1="3" y1="6" x2="1" y2="6"/><line x1="3" y1="10" x2="1" y2="10"/><line x1="13" y1="6" x2="15" y2="6"/><line x1="13" y1="10" x2="15" y2="10"/><line x1="6" y1="3" x2="6" y2="1"/><line x1="10" y1="3" x2="10" y2="1"/><line x1="6" y1="13" x2="6" y2="15"/><line x1="10" y1="13" x2="10" y2="15"/></svg>
+      FPGA Target
+    </div>
+    <div class="card-body">
+      <label class="lbl">VENDOR / FAMILY</label>
+      <select id="fpgaTarget" onchange="onFpgaChange()">
+        <option value="xilinx_artix">Xilinx — Artix-7</option>
+        <option value="xilinx_kintex">Xilinx — Kintex UltraScale</option>
+        <option value="xilinx_zynq">Xilinx — Zynq-7000</option>
+        <option value="intel_cyclone">Intel — Cyclone V</option>
+        <option value="intel_arria">Intel — Arria 10</option>
+        <option value="lattice_ice">Lattice — iCE40</option>
+        <option value="lattice_ecp">Lattice — ECP5</option>
+        <option value="gowin">Gowin — GW1N</option>
+      </select>
+      <div class="tool-grid" id="fpgaInfo">
+        <div class="tool-val"><div class="tv" id="fpgaMaxClk">450</div><div class="tl">MAX CLK (MHz)</div></div>
+        <div class="tool-val"><div class="tv" id="fpgaClkOk" style="color:var(--green)">✓ OK</div><div class="tl">CLK FEASIBILITY</div></div>
+        <div class="tool-val"><div class="tv" id="fpgaPLL">MMCM</div><div class="tl">PLL TYPE</div></div>
+        <div class="tool-val"><div class="tv" id="fpgaIDE">Vivado</div><div class="tl">TOOLCHAIN</div></div>
+      </div>
+      <div id="fpgaPLLHint" style="font-size:10px;color:var(--text2);line-height:1.6;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <!-- Color depth -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="8" r="3"/><circle cx="11" cy="8" r="3"/></svg>
+      Color Depth
+    </div>
+    <div class="card-body">
+      <label class="lbl">BITS PER CHANNEL</label>
+      <div class="toggle-row">
+        <button class="tglbtn" id="bit4" onclick="setBits(4)">4-bit</button>
+        <button class="tglbtn act" id="bit8" onclick="setBits(8)">8-bit</button>
+        <button class="tglbtn" id="bit10" onclick="setBits(10)">10-bit</button>
+        <button class="tglbtn" id="bit12" onclick="setBits(12)">12-bit</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /LEFT -->
+
+<!-- ─── CENTER PANEL ─────────────────────────────────────── -->
+<div class="cpanel">
+  <div class="cpanel-top">
+    <!-- Waveform -->
+    <div class="wave-area" style="height:270px;flex-shrink:0">
+      <canvas id="waveCanvas" height="270"></canvas>
+    </div>
+    <!-- CRT Preview -->
+    <div class="crt-area">
+      <div class="crt-label">CRT / RASTER SCAN PREVIEW</div>
+      <div class="scanlines-overlay"></div>
+      <canvas id="crtCanvas" width="540" height="190" style="border-radius:8px;box-shadow:0 0 60px rgba(34,211,238,.08),0 0 0 1px var(--border2)"></canvas>
+    </div>
+  </div>
+</div>
+<!-- /CENTER -->
+
+<!-- ─── RIGHT PANEL ──────────────────────────────────────── -->
+<div class="rpanel">
+
+  <!-- Key stats -->
+  <div class="card card-glow">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,12 5,6 8,9 11,4 14,7"/></svg>
+      Pixel Clock &amp; Key Metrics
+    </div>
+    <div class="card-body">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="s_pclk">25.175<span class="unit">MHz</span></div><div class="stat-lbl">Pixel Clock</div></div>
+        <div class="stat-card"><div class="stat-val green" id="s_fps">60.00<span class="unit">fps</span></div><div class="stat-lbl">Frame Rate</div></div>
+        <div class="stat-card"><div class="stat-val blue" id="s_lfreq">31.47<span class="unit">kHz</span></div><div class="stat-lbl">Line Freq</div></div>
+        <div class="stat-card"><div class="stat-val amber" id="s_bw">0.605<span class="unit">Gbps</span></div><div class="stat-lbl">Bandwidth</div></div>
+      </div>
+      <!-- Pixel clock feasibility bar -->
+      <div class="section-title">Pixel Clock Utilization</div>
+      <div id="clkUsageLbl" style="font-size:10px;color:var(--text2);margin-bottom:3px"></div>
+      <div class="progress-bar"><div class="progress-fill" id="clkBar" style="width:5.6%"></div></div>
+    </div>
+  </div>
+
+  <!-- Timing details table -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1"/><line x1="1" y1="5" x2="15" y2="5"/><line x1="1" y1="9" x2="15" y2="9"/><line x1="1" y1="13" x2="15" y2="13"/><line x1="5" y1="5" x2="5" y2="15"/></svg>
+      Timing Parameters
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="ttable" id="timingTable"></table>
+    </div>
+  </div>
+
+  <!-- Engineering tools -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14 L6 10 L4 8 L10 2 L12 4 L8 10 L10 12 Z"/></svg>
+      Engineering Utilities
+    </div>
+    <div class="card-body">
+      <div class="tool-grid">
+        <div class="tool-val"><div class="tv" id="u_hTotal" style="font-size:14px">800</div><div class="tl">H TOTAL px</div></div>
+        <div class="tool-val"><div class="tv" id="u_vTotal" style="font-size:14px">525</div><div class="tl">V TOTAL lines</div></div>
+        <div class="tool-val"><div class="tv" id="u_active" style="font-size:14px">75.6%</div><div class="tl">ACTIVE DUTY</div></div>
+        <div class="tool-val"><div class="tv" id="u_fb" style="font-size:14px">0.88 MB</div><div class="tl">FRAME BUFFER</div></div>
+        <div class="tool-val"><div class="tv" id="u_lineT" style="font-size:14px">31.78μs</div><div class="tl">LINE TIME</div></div>
+        <div class="tool-val"><div class="tv" id="u_frameT" style="font-size:14px">16.67ms</div><div class="tl">FRAME TIME</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Verilog code generator -->
+  <div class="card" id="codeCard">
+    <div class="card-hdr" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="5,4 1,8 5,12"/><polyline points="11,4 15,8 11,12"/><line x1="8" y1="2" x2="7" y2="14"/></svg>
+        HDL Code Generator
+      </span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="downloadCode('v')">↓ .v</button>
+        <button class="btn btn-sm btn-cyan" onclick="copyCode()">⎘ Copy</button>
+      </div>
+    </div>
+    <div class="code-tabs">
+      <div class="ctab act" onclick="setTab('verilog')">Verilog</div>
+      <div class="ctab" onclick="setTab('sv')">SystemVerilog</div>
+      <div class="ctab" onclick="setTab('vhdl')">VHDL</div>
+      <div class="ctab" onclick="setTab('tcl')">TCL Constraints</div>
+    </div>
+    <div class="code-wrap">
+      <pre class="code" id="codeBlock"></pre>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="card">
+    <div class="card-hdr">
+      <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><rect x="2" y="11" width="12" height="3" rx="1"/></svg>
+      Export &amp; Tools
+    </div>
+    <div class="card-body">
+      <div class="btn-row">
+        <button class="btn btn-cyan btn-sm" onclick="exportJSON()">⬡ JSON Config</button>
+        <button class="btn btn-sm" onclick="exportTestbench()">↓ Testbench</button>
+        <button class="btn btn-sm" onclick="exportConstraints()">↓ .xdc</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- /RIGHT -->
+</div><!-- /workspace -->
+
+<!-- ═══ TERMINAL ══════════════════════════════════════════ -->
+<div class="term">
+  <div class="term-hdr">
+    <div class="term-title">▸ Validation Console</div>
+    <div class="hdr-sep" style="flex:1"></div>
+    <button class="btn btn-sm" onclick="clearLogs()">Clear</button>
+  </div>
+  <div id="termLog"></div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ═══ JAVASCRIPT ════════════════════════════════════════ -->
+<script>
+// ─── PRESET DATABASE ──────────────────────────────────────
+const PRESETS = {
+  '640x480@60':   {lbl:'640×480',hz:60,hA:640, hFP:16,  hS:96,  hBP:48,  vA:480, vFP:10,vS:2,vBP:33, hp:-1,vp:-1,std:'VGA'},
+  '800x600@60':   {lbl:'800×600',hz:60,hA:800, hFP:40,  hS:128, hBP:88,  vA:600, vFP:1, vS:4,vBP:23, hp:1, vp:1, std:'SVGA'},
+  '1024x768@60':  {lbl:'1024×768',hz:60,hA:1024,hFP:24, hS:136, hBP:160, vA:768, vFP:3, vS:6,vBP:29, hp:-1,vp:-1,std:'XGA'},
+  '1280x720@60':  {lbl:'1280×720',hz:60,hA:1280,hFP:110,hS:40,  hBP:220, vA:720, vFP:5, vS:5,vBP:20, hp:1, vp:1, std:'HDTV'},
+  '1920x1080@60': {lbl:'1920×1080',hz:60,hA:1920,hFP:88,hS:44, hBP:148, vA:1080,vFP:4, vS:5,vBP:36, hp:1, vp:1, std:'FHD'},
+  '1280x1024@60': {lbl:'1280×1024',hz:60,hA:1280,hFP:48,hS:112,hBP:248, vA:1024,vFP:1, vS:3,vBP:38, hp:1, vp:1, std:'SXGA'},
+};
+
+const FPGA_DB = {
+  xilinx_artix:  {maxClk:450, pll:'MMCM/PLL',  ide:'Vivado',  hint:'Use MMCM with CLKFBOUT_MULT_F and CLKOUT0_DIVIDE_F for fractional pixel clocks.'},
+  xilinx_kintex: {maxClk:741, pll:'MMCM/BUFG', ide:'Vivado',  hint:'UltraScale MMCM supports CLKOUT6 for fine phase control. Use BUFGCE for gating.'},
+  xilinx_zynq:   {maxClk:450, pll:'MMCM/FCLK', ide:'Vivado',  hint:'PS FCLK_CLK can feed PL MMCM. Set CLKFBOUT_MULT carefully for tight jitter specs.'},
+  intel_cyclone: {maxClk:550, pll:'ALTPLL',    ide:'Quartus', hint:'Use ALTPLL or ALTERA_PLL megafunctions. Enable clock feedback for low-jitter output.'},
+  intel_arria:   {maxClk:800, pll:'IOPLL',     ide:'Quartus', hint:'Arria 10 IOPLLs support fOUT up to 800 MHz. Use fractional synthesis for pixel clocks.'},
+  lattice_ice:   {maxClk:275, pll:'SB_PLL40',  ide:'iCEcube', hint:'iCE40 PLL range: 16-275 MHz out. Use SB_PLL40_PAD for pixel clock generation.'},
+  lattice_ecp:   {maxClk:400, pll:'EHXPLLL',   ide:'Diamond', hint:'ECP5 EHXPLLL supports dynamic reconfiguration. Good for multi-resolution VGA.'},
+  gowin:         {maxClk:600, pll:'rPLL',      ide:'EDA/TD',  hint:'Gowin rPLL supports 4.5-900 MHz output. Use FBDIV and IDIV_SEL carefully.'},
+};
+
+// ─── STATE ────────────────────────────────────────────────
+let cfg = {hA:640,hFP:16,hS:96,hBP:48,vA:480,vFP:10,vS:2,vBP:33,hp:-1,vp:-1,refresh:60,bits:8,fpga:'xilinx_artix'};
+let activePreset = '640x480@60';
+let codeTab = 'verilog';
+let animId = null;
+let animT = 0;
+let logs = [];
+let logTs = 0;
+
+// ─── CALCULATIONS ─────────────────────────────────────────
+function calc(c) {
+  const hT = c.hA + c.hFP + c.hS + c.hBP;
+  const vT = c.vA + c.vFP + c.vS + c.vBP;
+  const pclk = hT * vT * c.refresh;           // Hz
+  const pclkMHz = pclk / 1e6;
+  const lFreqkHz = pclk / hT / 1000;
+  const fps = pclk / hT / vT;
+  const lineUs = 1e6 * hT / pclk;
+  const frameMs = 1000 * hT * vT / pclk;
+  const activePct = c.hA * c.vA / (hT * vT) * 100;
+  const hBlankPct = (hT - c.hA) / hT * 100;
+  const vBlankPct = (vT - c.vA) / vT * 100;
+  const bwGbps = pclkMHz * c.bits * 3 / 1000;
+  const fbMiB = c.hA * c.vA * 3 / (1024*1024);
+  return {hT,vT,pclkMHz,lFreqkHz,fps,lineUs,frameMs,activePct,hBlankPct,vBlankPct,bwGbps,fbMiB};
+}
+
+// ─── CODE GENERATORS ──────────────────────────────────────
+function genVerilog(c,t) {
+  const hs = c.hp > 0 ? '1' : '0', hsi = c.hp > 0 ? '0' : '1';
+  const vs = c.vp > 0 ? '1' : '0', vsi = c.vp > 0 ? '0' : '1';
+  return `<span class="cmt">// ================================================================
+//  VGA Timing Controller — Auto-generated by VGA Timing Studio
+//  Resolution : ${c.hA}×${c.vA} @ ${c.refresh}Hz
+//  Pixel Clock : ${t.pclkMHz.toFixed(3)} MHz
+//  Standard    : Generated ${new Date().toISOString().slice(0,10)}
+// ================================================================</span>
+
+<span class="kw">module</span> <span class="mod">vga_controller</span> #(
+  <span class="cmt">// ── Horizontal Timing Parameters ────────────────────────</span>
+  <span class="kw">parameter</span> <span class="param">H_ACTIVE</span>    = <span class="num">${c.hA}</span>,   <span class="cmt">// Active pixels</span>
+  <span class="kw">parameter</span> <span class="param">H_FRONT</span>     = <span class="num">${c.hFP}</span>,    <span class="cmt">// Front porch</span>
+  <span class="kw">parameter</span> <span class="param">H_SYNC</span>      = <span class="num">${c.hS}</span>,    <span class="cmt">// Sync pulse width</span>
+  <span class="kw">parameter</span> <span class="param">H_BACK</span>      = <span class="num">${c.hBP}</span>,    <span class="cmt">// Back porch</span>
+  <span class="cmt">// ── Vertical Timing Parameters ──────────────────────────</span>
+  <span class="kw">parameter</span> <span class="param">V_ACTIVE</span>    = <span class="num">${c.vA}</span>,   <span class="cmt">// Active lines</span>
+  <span class="kw">parameter</span> <span class="param">V_FRONT</span>     = <span class="num">${c.vFP}</span>,    <span class="cmt">// Front porch</span>
+  <span class="kw">parameter</span> <span class="param">V_SYNC</span>      = <span class="num">${c.vS}</span>,     <span class="cmt">// Sync pulse width</span>
+  <span class="kw">parameter</span> <span class="param">V_BACK</span>      = <span class="num">${c.vBP}</span>,    <span class="cmt">// Back porch</span>
+  <span class="cmt">// ── Sync Polarities ─────────────────────────────────────</span>
+  <span class="kw">parameter</span> <span class="param">HSYNC_POL</span>   = <span class="num">1'b${hs}</span>,  <span class="cmt">// ${c.hp>0?'Positive':'Negative'} polarity</span>
+  <span class="kw">parameter</span> <span class="param">VSYNC_POL</span>   = <span class="num">1'b${vs}</span>   <span class="cmt">// ${c.vp>0?'Positive':'Negative'} polarity</span>
+)(
+  <span class="dir">input</span>  <span class="kw">wire</span>        <span class="sig">clk</span>,           <span class="cmt">// Pixel clock ${t.pclkMHz.toFixed(3)} MHz</span>
+  <span class="dir">input</span>  <span class="kw">wire</span>        <span class="sig">rst_n</span>,         <span class="cmt">// Active-low reset</span>
+  <span class="dir">output</span> <span class="kw">reg</span>         <span class="sig">hsync</span>,         <span class="cmt">// Horizontal sync</span>
+  <span class="dir">output</span> <span class="kw">reg</span>         <span class="sig">vsync</span>,         <span class="cmt">// Vertical sync</span>
+  <span class="dir">output</span> <span class="kw">wire</span>        <span class="sig">active_video</span>,  <span class="cmt">// Display enable</span>
+  <span class="dir">output</span> <span class="kw">wire</span> [<span class="num">11</span>:<span class="num">0</span>] <span class="sig">h_count</span>,       <span class="cmt">// Horizontal counter</span>
+  <span class="dir">output</span> <span class="kw">wire</span> [<span class="num">11</span>:<span class="num">0</span>] <span class="sig">v_count</span>        <span class="cmt">// Vertical counter</span>
+);
+
+  <span class="cmt">// ── Derived Constants ──────────────────────────────────</span>
+  <span class="kw">localparam</span> <span class="param">H_TOTAL</span>    = <span class="param">H_ACTIVE</span> + <span class="param">H_FRONT</span> + <span class="param">H_SYNC</span> + <span class="param">H_BACK</span>;  <span class="cmt">// = ${t.hT}</span>
+  <span class="kw">localparam</span> <span class="param">V_TOTAL</span>    = <span class="param">V_ACTIVE</span> + <span class="param">V_FRONT</span> + <span class="param">V_SYNC</span> + <span class="param">V_BACK</span>;  <span class="cmt">// = ${t.vT}</span>
+  <span class="kw">localparam</span> <span class="param">HS_START</span>   = <span class="param">H_ACTIVE</span> + <span class="param">H_FRONT</span>;               <span class="cmt">// = ${c.hA+c.hFP}</span>
+  <span class="kw">localparam</span> <span class="param">HS_END</span>     = <span class="param">HS_START</span>  + <span class="param">H_SYNC</span>;                <span class="cmt">// = ${c.hA+c.hFP+c.hS}</span>
+  <span class="kw">localparam</span> <span class="param">VS_START</span>   = <span class="param">V_ACTIVE</span> + <span class="param">V_FRONT</span>;               <span class="cmt">// = ${c.vA+c.vFP}</span>
+  <span class="kw">localparam</span> <span class="param">VS_END</span>     = <span class="param">VS_START</span>  + <span class="param">V_SYNC</span>;                <span class="cmt">// = ${c.vA+c.vFP+c.vS}</span>
+
+  <span class="cmt">// ── Internal Counters ──────────────────────────────────</span>
+  <span class="kw">reg</span> [<span class="num">11</span>:<span class="num">0</span>] h_cnt;
+  <span class="kw">reg</span> [<span class="num">11</span>:<span class="num">0</span>] v_cnt;
+
+  <span class="cmt">// ── Horizontal Counter ─────────────────────────────────</span>
+  <span class="kw">always</span> @(<span class="kw">posedge</span> <span class="sig">clk</span> <span class="kw">or</span> <span class="kw">negedge</span> <span class="sig">rst_n</span>) <span class="kw">begin</span>
+    <span class="kw">if</span> (!<span class="sig">rst_n</span>)
+      h_cnt <span class="op">&lt;=</span> <span class="num">12'd0</span>;
+    <span class="kw">else if</span> (h_cnt <span class="op">==</span> <span class="param">H_TOTAL</span> <span class="op">-</span> <span class="num">1</span>)
+      h_cnt <span class="op">&lt;=</span> <span class="num">12'd0</span>;
+    <span class="kw">else</span>
+      h_cnt <span class="op">&lt;=</span> h_cnt <span class="op">+</span> <span class="num">12'd1</span>;
+  <span class="kw">end</span>
+
+  <span class="cmt">// ── Vertical Counter ───────────────────────────────────</span>
+  <span class="kw">always</span> @(<span class="kw">posedge</span> <span class="sig">clk</span> <span class="kw">or</span> <span class="kw">negedge</span> <span class="sig">rst_n</span>) <span class="kw">begin</span>
+    <span class="kw">if</span> (!<span class="sig">rst_n</span>)
+      v_cnt <span class="op">&lt;=</span> <span class="num">12'd0</span>;
+    <span class="kw">else if</span> (h_cnt <span class="op">==</span> <span class="param">H_TOTAL</span> <span class="op">-</span> <span class="num">1</span>) <span class="kw">begin</span>
+      <span class="kw">if</span> (v_cnt <span class="op">==</span> <span class="param">V_TOTAL</span> <span class="op">-</span> <span class="num">1</span>)
+        v_cnt <span class="op">&lt;=</span> <span class="num">12'd0</span>;
+      <span class="kw">else</span>
+        v_cnt <span class="op">&lt;=</span> v_cnt <span class="op">+</span> <span class="num">12'd1</span>;
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+
+  <span class="cmt">// ── Sync Generation ────────────────────────────────────</span>
+  <span class="kw">always</span> @(<span class="kw">posedge</span> <span class="sig">clk</span> <span class="kw">or</span> <span class="kw">negedge</span> <span class="sig">rst_n</span>) <span class="kw">begin</span>
+    <span class="kw">if</span> (!<span class="sig">rst_n</span>) <span class="kw">begin</span>
+      <span class="sig">hsync</span> <span class="op">&lt;=</span> ~<span class="param">HSYNC_POL</span>;
+      <span class="sig">vsync</span> <span class="op">&lt;=</span> ~<span class="param">VSYNC_POL</span>;
+    <span class="kw">end else begin</span>
+      <span class="sig">hsync</span> <span class="op">&lt;=</span> (h_cnt <span class="op">&gt;=</span> <span class="param">HS_START</span> <span class="op">&amp;&amp;</span> h_cnt <span class="op">&lt;</span> <span class="param">HS_END</span>) <span class="op">?</span> <span class="param">HSYNC_POL</span> : ~<span class="param">HSYNC_POL</span>;
+      <span class="sig">vsync</span> <span class="op">&lt;=</span> (v_cnt <span class="op">&gt;=</span> <span class="param">VS_START</span> <span class="op">&amp;&amp;</span> v_cnt <span class="op">&lt;</span> <span class="param">VS_END</span>) <span class="op">?</span> <span class="param">VSYNC_POL</span> : ~<span class="param">VSYNC_POL</span>;
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+
+  <span class="cmt">// ── Output Assignments ─────────────────────────────────</span>
+  <span class="kw">assign</span> <span class="sig">active_video</span> = (h_cnt <span class="op">&lt;</span> <span class="param">H_ACTIVE</span>) <span class="op">&amp;&amp;</span> (v_cnt <span class="op">&lt;</span> <span class="param">V_ACTIVE</span>);
+  <span class="kw">assign</span> <span class="sig">h_count</span>      = h_cnt;
+  <span class="kw">assign</span> <span class="sig">v_count</span>      = v_cnt;
+
+<span class="kw">endmodule</span>`;
+}
+
+function genSV(c,t) {
+  const hs = c.hp > 0 ? '1' : '0', vs = c.vp > 0 ? '1' : '0';
+  return `<span class="cmt">// ================================================================
+//  VGA Controller — SystemVerilog (IEEE 1800-2017)
+//  ${c.hA}×${c.vA} @ ${c.refresh}Hz  |  Pixel Clk: ${t.pclkMHz.toFixed(3)} MHz
+// ================================================================</span>
+
+<span class="kw">module</span> <span class="mod">vga_controller</span>
+  <span class="kw">import</span> vga_pkg::*;
+#(
+  <span class="kw">parameter int unsigned</span> <span class="param">H_ACTIVE</span>  = <span class="num">${c.hA}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">H_FRONT</span>   = <span class="num">${c.hFP}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">H_SYNC</span>    = <span class="num">${c.hS}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">H_BACK</span>    = <span class="num">${c.hBP}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">V_ACTIVE</span>  = <span class="num">${c.vA}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">V_FRONT</span>   = <span class="num">${c.vFP}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">V_SYNC</span>    = <span class="num">${c.vS}</span>,
+  <span class="kw">parameter int unsigned</span> <span class="param">V_BACK</span>    = <span class="num">${c.vBP}</span>,
+  <span class="kw">parameter logic</span>        <span class="param">HSYNC_POL</span> = <span class="num">1'b${hs}</span>,
+  <span class="kw">parameter logic</span>        <span class="param">VSYNC_POL</span> = <span class="num">1'b${vs}</span>
+)(
+  <span class="dir">input</span>  <span class="kw">logic</span>        <span class="sig">clk</span>,
+  <span class="dir">input</span>  <span class="kw">logic</span>        <span class="sig">rst_n</span>,
+  <span class="dir">output</span> <span class="kw">logic</span>        <span class="sig">hsync</span>,
+  <span class="dir">output</span> <span class="kw">logic</span>        <span class="sig">vsync</span>,
+  <span class="dir">output</span> <span class="kw">logic</span>        <span class="sig">de</span>,
+  <span class="dir">output</span> <span class="kw">logic</span> [<span class="num">11</span>:<span class="num">0</span>] <span class="sig">h_cnt</span>,
+  <span class="dir">output</span> <span class="kw">logic</span> [<span class="num">11</span>:<span class="num">0</span>] <span class="sig">v_cnt</span>
+);
+
+  <span class="kw">localparam int unsigned</span> <span class="param">H_TOTAL</span>  = <span class="num">${t.hT}</span>;
+  <span class="kw">localparam int unsigned</span> <span class="param">V_TOTAL</span>  = <span class="num">${t.vT}</span>;
+  <span class="kw">localparam int unsigned</span> <span class="param">HS_START</span> = <span class="num">${c.hA+c.hFP}</span>;
+  <span class="kw">localparam int unsigned</span> <span class="param">VS_START</span> = <span class="num">${c.vA+c.vFP}</span>;
+
+  <span class="cmt">// Pixel counters</span>
+  <span class="kw">always_ff</span> @(<span class="kw">posedge</span> <span class="sig">clk</span> <span class="kw">or</span> <span class="kw">negedge</span> <span class="sig">rst_n</span>) <span class="kw">begin</span>
+    <span class="kw">if</span> (!<span class="sig">rst_n</span>) <span class="kw">begin</span>
+      <span class="sig">h_cnt</span> <span class="op">&lt;=</span> <span class="num">'0</span>;
+      <span class="sig">v_cnt</span> <span class="op">&lt;=</span> <span class="num">'0</span>;
+    <span class="kw">end else begin</span>
+      <span class="kw">if</span> (<span class="sig">h_cnt</span> <span class="op">==</span> <span class="param">H_TOTAL</span> <span class="op">-</span> <span class="num">1</span>) <span class="kw">begin</span>
+        <span class="sig">h_cnt</span> <span class="op">&lt;=</span> <span class="num">'0</span>;
+        <span class="sig">v_cnt</span> <span class="op">&lt;=</span> (<span class="sig">v_cnt</span> <span class="op">==</span> <span class="param">V_TOTAL</span> <span class="op">-</span> <span class="num">1</span>) <span class="op">?</span> <span class="num">'0</span> : <span class="sig">v_cnt</span> <span class="op">+</span> <span class="num">1</span>;
+      <span class="kw">end else</span>
+        <span class="sig">h_cnt</span> <span class="op">&lt;=</span> <span class="sig">h_cnt</span> <span class="op">+</span> <span class="num">1</span>;
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+
+  <span class="cmt">// Sync & DE outputs</span>
+  <span class="kw">always_ff</span> @(<span class="kw">posedge</span> <span class="sig">clk</span>) <span class="kw">begin</span>
+    <span class="sig">hsync</span> <span class="op">&lt;=</span> (<span class="sig">h_cnt</span> <span class="op">&gt;=</span> <span class="param">HS_START</span> <span class="op">&amp;&amp;</span> <span class="sig">h_cnt</span> <span class="op">&lt;</span> <span class="param">HS_START</span> <span class="op">+</span> <span class="param">H_SYNC</span>) <span class="op">^</span> ~<span class="param">HSYNC_POL</span>;
+    <span class="sig">vsync</span> <span class="op">&lt;=</span> (<span class="sig">v_cnt</span> <span class="op">&gt;=</span> <span class="param">VS_START</span> <span class="op">&amp;&amp;</span> <span class="sig">v_cnt</span> <span class="op">&lt;</span> <span class="param">VS_START</span> <span class="op">+</span> <span class="param">V_SYNC</span>) <span class="op">^</span> ~<span class="param">VSYNC_POL</span>;
+    <span class="sig">de</span>    <span class="op">&lt;=</span> (<span class="sig">h_cnt</span> <span class="op">&lt;</span> <span class="param">H_ACTIVE</span>) <span class="op">&amp;&amp;</span> (<span class="sig">v_cnt</span> <span class="op">&lt;</span> <span class="param">V_ACTIVE</span>);
+  <span class="kw">end</span>
+
+<span class="kw">endmodule</span>`;
+}
+
+function genVHDL(c,t) {
+  return `<span class="cmt">-- ================================================================
+--  VGA Controller — VHDL (IEEE 1076-2008)
+--  ${c.hA}×${c.vA} @ ${c.refresh}Hz  |  Pixel Clk: ${t.pclkMHz.toFixed(3)} MHz
+-- ================================================================</span>
+
+<span class="kw">library</span> <span class="mod">ieee</span>;
+<span class="kw">use</span> <span class="mod">ieee.std_logic_1164</span>.<span class="kw">all</span>;
+<span class="kw">use</span> <span class="mod">ieee.numeric_std</span>.<span class="kw">all</span>;
+
+<span class="kw">entity</span> <span class="mod">vga_controller</span> <span class="kw">is</span>
+  <span class="kw">generic</span> (
+    <span class="param">H_ACTIVE</span>  : <span class="kw">natural</span> := <span class="num">${c.hA}</span>;
+    <span class="param">H_FRONT</span>   : <span class="kw">natural</span> := <span class="num">${c.hFP}</span>;
+    <span class="param">H_SYNC</span>    : <span class="kw">natural</span> := <span class="num">${c.hS}</span>;
+    <span class="param">H_BACK</span>    : <span class="kw">natural</span> := <span class="num">${c.hBP}</span>;
+    <span class="param">V_ACTIVE</span>  : <span class="kw">natural</span> := <span class="num">${c.vA}</span>;
+    <span class="param">V_FRONT</span>   : <span class="kw">natural</span> := <span class="num">${c.vFP}</span>;
+    <span class="param">V_SYNC</span>    : <span class="kw">natural</span> := <span class="num">${c.vS}</span>;
+    <span class="param">V_BACK</span>    : <span class="kw">natural</span> := <span class="num">${c.vBP}</span>;
+    <span class="param">HSYNC_POL</span> : <span class="kw">std_logic</span> := '<span class="num">${c.hp>0?1:0}</span>';
+    <span class="param">VSYNC_POL</span> : <span class="kw">std_logic</span> := '<span class="num">${c.vp>0?1:0}</span>'
+  );
+  <span class="kw">port</span> (
+    <span class="sig">clk</span>         : <span class="kw">in</span>  <span class="kw">std_logic</span>;
+    <span class="sig">rst_n</span>       : <span class="kw">in</span>  <span class="kw">std_logic</span>;
+    <span class="sig">hsync</span>       : <span class="kw">out</span> <span class="kw">std_logic</span>;
+    <span class="sig">vsync</span>       : <span class="kw">out</span> <span class="kw">std_logic</span>;
+    <span class="sig">active_video</span>: <span class="kw">out</span> <span class="kw">std_logic</span>;
+    <span class="sig">h_count</span>     : <span class="kw">out</span> <span class="kw">unsigned</span>(<span class="num">11</span> <span class="kw">downto</span> <span class="num">0</span>);
+    <span class="sig">v_count</span>     : <span class="kw">out</span> <span class="kw">unsigned</span>(<span class="num">11</span> <span class="kw">downto</span> <span class="num">0</span>)
+  );
+<span class="kw">end entity</span> <span class="mod">vga_controller</span>;
+
+<span class="kw">architecture</span> <span class="mod">rtl</span> <span class="kw">of</span> <span class="mod">vga_controller</span> <span class="kw">is</span>
+  <span class="kw">constant</span> <span class="param">H_TOTAL</span> : <span class="kw">natural</span> := <span class="num">${t.hT}</span>;
+  <span class="kw">constant</span> <span class="param">V_TOTAL</span> : <span class="kw">natural</span> := <span class="num">${t.vT}</span>;
+  <span class="kw">signal</span>   h_cnt   : <span class="kw">unsigned</span>(<span class="num">11</span> <span class="kw">downto</span> <span class="num">0</span>) := (<span class="kw">others</span> => '<span class="num">0</span>');
+  <span class="kw">signal</span>   v_cnt   : <span class="kw">unsigned</span>(<span class="num">11</span> <span class="kw">downto</span> <span class="num">0</span>) := (<span class="kw">others</span> => '<span class="num">0</span>');
+<span class="kw">begin</span>
+
+  <span class="cmt">-- Horizontal & Vertical counters</span>
+  p_counters : <span class="kw">process</span>(<span class="sig">clk</span>, <span class="sig">rst_n</span>) <span class="kw">is</span>
+  <span class="kw">begin</span>
+    <span class="kw">if</span> <span class="sig">rst_n</span> = '<span class="num">0</span>' <span class="kw">then</span>
+      h_cnt <= (<span class="kw">others</span> => '<span class="num">0</span>');
+      v_cnt <= (<span class="kw">others</span> => '<span class="num">0</span>');
+    <span class="kw">elsif rising_edge</span>(<span class="sig">clk</span>) <span class="kw">then</span>
+      <span class="kw">if</span> h_cnt = <span class="num">${t.hT}</span> - <span class="num">1</span> <span class="kw">then</span>
+        h_cnt <= (<span class="kw">others</span> => '<span class="num">0</span>');
+        <span class="kw">if</span> v_cnt = <span class="num">${t.vT}</span> - <span class="num">1</span> <span class="kw">then</span> v_cnt <= (<span class="kw">others</span> => '<span class="num">0</span>');
+        <span class="kw">else</span> v_cnt <= v_cnt + <span class="num">1</span>; <span class="kw">end if</span>;
+      <span class="kw">else</span> h_cnt <= h_cnt + <span class="num">1</span>; <span class="kw">end if</span>;
+    <span class="kw">end if</span>;
+  <span class="kw">end process</span>;
+
+  <span class="cmt">-- Sync outputs</span>
+  <span class="sig">hsync</span> <= <span class="param">HSYNC_POL</span> <span class="kw">when</span> (h_cnt >= <span class="num">${c.hA+c.hFP}</span> <span class="kw">and</span> h_cnt < <span class="num">${c.hA+c.hFP+c.hS}</span>) <span class="kw">else</span> <span class="kw">not</span> <span class="param">HSYNC_POL</span>;
+  <span class="sig">vsync</span> <= <span class="param">VSYNC_POL</span> <span class="kw">when</span> (v_cnt >= <span class="num">${c.vA+c.vFP}</span> <span class="kw">and</span> v_cnt < <span class="num">${c.vA+c.vFP+c.vS}</span>) <span class="kw">else</span> <span class="kw">not</span> <span class="param">VSYNC_POL</span>;
+  <span class="sig">active_video</span> <= '<span class="num">1</span>' <span class="kw">when</span> (h_cnt < <span class="num">${c.hA}</span> <span class="kw">and</span> v_cnt < <span class="num">${c.vA}</span>) <span class="kw">else</span> '<span class="num">0</span>';
+  <span class="sig">h_count</span>      <= h_cnt;
+  <span class="sig">v_count</span>      <= v_cnt;
+
+<span class="kw">end architecture</span> <span class="mod">rtl</span>;`;
+}
+
+function genTCL(c,t) {
+  return `<span class="cmt"># ================================================================
+#  Xilinx Vivado Timing Constraints
+#  Generated by VGA Timing Studio
+#  Target: ${c.hA}×${c.vA} @ ${c.refresh}Hz
+# ================================================================</span>
+
+<span class="cmt"># ── Primary Clock ─────────────────────────────────────────</span>
+<span class="kw">create_clock</span> <span class="param">-name</span> sys_clk <span class="param">-period</span> <span class="num">10.000</span> [<span class="kw">get_ports</span> clk]
+
+<span class="cmt"># ── Pixel Clock (MMCM Output) ──────────────────────────────</span>
+<span class="cmt"># Pixel clock: ${t.pclkMHz.toFixed(3)} MHz  →  Period: ${(1000/t.pclkMHz).toFixed(4)} ns</span>
+<span class="kw">create_generated_clock</span> <span class="param">-name</span> pixel_clk \\
+  <span class="param">-source</span> [<span class="kw">get_pins</span> mmcm_inst/CLKOUT0] \\
+  <span class="param">-multiply_by</span> <span class="num">1</span> \\
+  <span class="param">-divide_by</span>   <span class="num">1</span> \\
+  <span class="param">-period</span>      <span class="num">${(1000/t.pclkMHz).toFixed(4)}</span> \\
+  [<span class="kw">get_pins</span> mmcm_inst/CLKOUT0]
+
+<span class="cmt"># ── Output Timing Constraints ─────────────────────────────</span>
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-max</span> <span class="num">2.0</span> [<span class="kw">get_ports</span> hsync]
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-min</span> <span class="num">0.5</span> [<span class="kw">get_ports</span> hsync]
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-max</span> <span class="num">2.0</span> [<span class="kw">get_ports</span> vsync]
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-min</span> <span class="num">0.5</span> [<span class="kw">get_ports</span> vsync]
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-max</span> <span class="num">2.0</span> [<span class="kw">get_ports</span> {vga_r[*] vga_g[*] vga_b[*]}]
+<span class="kw">set_output_delay</span> <span class="param">-clock</span> pixel_clk <span class="param">-min</span> <span class="num">0.5</span> [<span class="kw">get_ports</span> {vga_r[*] vga_g[*] vga_b[*]}]
+
+<span class="cmt"># ── Clock Domain Crossings ─────────────────────────────────</span>
+<span class="kw">set_false_path</span> <span class="param">-from</span> [<span class="kw">get_clocks</span> sys_clk] <span class="param">-to</span> [<span class="kw">get_clocks</span> pixel_clk]
+
+<span class="cmt"># ── MMCM Configuration (reference) ────────────────────────</span>
+<span class="cmt"># CLKFBOUT_MULT_F = ? (tune for ${t.pclkMHz.toFixed(3)} MHz output)</span>
+<span class="cmt"># CLKOUT0_DIVIDE_F = ?</span>
+<span class="cmt"># Use Clocking Wizard IP for automatic calculation</span>
+
+<span class="cmt"># ── Physical Constraints Example ──────────────────────────</span>
+<span class="cmt"># set_property IOSTANDARD LVCMOS33 [get_ports hsync]</span>
+<span class="cmt"># set_property IOSTANDARD LVCMOS33 [get_ports vsync]</span>
+<span class="cmt"># set_property IOSTANDARD LVCMOS33 [get_ports {vga_r[*]}]</span>`;
+}
+
+// ─── PLAIN TEXT FOR DOWNLOAD ───────────────────────────────
+function plainCode(c,t,lang) {
+  const hs = c.hp > 0 ? '1' : '0', vs = c.vp > 0 ? '1' : '0';
+  if (lang === 'verilog') return `// VGA Timing Controller — ${c.hA}x${c.vA} @ ${c.refresh}Hz — ${t.pclkMHz.toFixed(3)} MHz
+module vga_controller #(
+  parameter H_ACTIVE = ${c.hA}, H_FRONT = ${c.hFP}, H_SYNC = ${c.hS}, H_BACK = ${c.hBP},
+  parameter V_ACTIVE = ${c.vA}, V_FRONT = ${c.vFP}, V_SYNC = ${c.vS}, V_BACK = ${c.vBP},
+  parameter HSYNC_POL = 1'b${hs}, VSYNC_POL = 1'b${vs}
+)(
+  input  wire        clk, rst_n,
+  output reg         hsync, vsync,
+  output wire        active_video,
+  output wire [11:0] h_count, v_count
+);
+  localparam H_TOTAL = ${t.hT}, V_TOTAL = ${t.vT};
+  reg [11:0] h_cnt, v_cnt;
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin h_cnt <= 0; v_cnt <= 0; end
+    else begin
+      if (h_cnt == H_TOTAL-1) begin h_cnt <= 0; v_cnt <= (v_cnt == V_TOTAL-1) ? 0 : v_cnt+1; end
+      else h_cnt <= h_cnt + 1;
+    end
+  end
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin hsync <= ~HSYNC_POL; vsync <= ~VSYNC_POL; end
+    else begin
+      hsync <= (h_cnt >= ${c.hA+c.hFP} && h_cnt < ${c.hA+c.hFP+c.hS}) ? HSYNC_POL : ~HSYNC_POL;
+      vsync <= (v_cnt >= ${c.vA+c.vFP} && v_cnt < ${c.vA+c.vFP+c.vS}) ? VSYNC_POL : ~VSYNC_POL;
+    end
+  end
+  assign active_video = (h_cnt < H_ACTIVE) && (v_cnt < V_ACTIVE);
+  assign h_count = h_cnt; assign v_count = v_cnt;
+endmodule`;
+  return '// See generated HTML for other languages';
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────
+function readFields() {
+  cfg.hA  = +document.getElementById('hA').value  || 640;
+  cfg.hFP = +document.getElementById('hFP').value || 16;
+  cfg.hS  = +document.getElementById('hS').value  || 96;
+  cfg.hBP = +document.getElementById('hBP').value || 48;
+  cfg.vA  = +document.getElementById('vA').value  || 480;
+  cfg.vFP = +document.getElementById('vFP').value || 10;
+  cfg.vS  = +document.getElementById('vS').value  || 2;
+  cfg.vBP = +document.getElementById('vBP').value || 33;
+}
+
+function setFields(p) {
+  document.getElementById('hA').value  = p.hA;
+  document.getElementById('hFP').value = p.hFP;
+  document.getElementById('hS').value  = p.hS;
+  document.getElementById('hBP').value = p.hBP;
+  document.getElementById('vA').value  = p.vA;
+  document.getElementById('vFP').value = p.vFP;
+  document.getElementById('vS').value  = p.vS;
+  document.getElementById('vBP').value = p.vBP;
+}
+
+function setPol(axis, pol) {
+  if (axis === 'h') {
+    cfg.hp = pol === 'pos' ? 1 : -1;
+    document.getElementById('hPolN').classList.toggle('act-red', pol==='neg');
+    document.getElementById('hPolP').classList.toggle('act-grn', pol==='pos');
+    document.getElementById('hPolN').classList.toggle('act-grn', false);
+    document.getElementById('hPolP').classList.toggle('act-red', false);
+  } else {
+    cfg.vp = pol === 'pos' ? 1 : -1;
+    document.getElementById('vPolN').classList.toggle('act-red', pol==='neg');
+    document.getElementById('vPolP').classList.toggle('act-grn', pol==='pos');
+    document.getElementById('vPolN').classList.toggle('act-grn', false);
+    document.getElementById('vPolP').classList.toggle('act-red', false);
+  }
+  refresh();
+}
+
+function setRefresh(hz) {
+  cfg.refresh = hz;
+  document.getElementById('refreshSlider').value = hz;
+  document.getElementById('refreshDisp').textContent = hz;
+  document.querySelectorAll('.preset-grid:last-of-type .pbtn').forEach(b=>{
+    b.classList.toggle('act', parseInt(b.textContent)===hz);
+  });
+  activePreset = null;
+  refresh();
+}
+
+function setBits(b) {
+  cfg.bits = b;
+  [4,8,10,12].forEach(n => document.getElementById('bit'+n)?.classList.toggle('act', n===b));
+  refresh();
+}
+
+function onFpgaChange() {
+  cfg.fpga = document.getElementById('fpgaTarget').value;
+  updateFpgaInfo();
+  refresh();
+}
+
+function updateFpgaInfo() {
+  const f = FPGA_DB[cfg.fpga] || FPGA_DB.xilinx_artix;
+  const t = calc(cfg);
+  const ok = t.pclkMHz <= f.maxClk;
+  document.getElementById('fpgaMaxClk').textContent = f.maxClk;
+  document.getElementById('fpgaClkOk').textContent = ok ? '✓ OK' : '✗ OVER';
+  document.getElementById('fpgaClkOk').style.color = ok ? 'var(--green)' : 'var(--red)';
+  document.getElementById('fpgaPLL').textContent = f.pll;
+  document.getElementById('fpgaIDE').textContent = f.ide;
+  document.getElementById('fpgaPLLHint').textContent = f.hint;
+}
+
+function setTab(tab) {
+  codeTab = tab;
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('act'));
+  event.target.classList.add('act');
+  updateCode();
+}
+
+function clearLogs() { logs=[]; document.getElementById('termLog').innerHTML=''; }
+
+function addLog(type, msg) {
+  const ts = new Date().toLocaleTimeString('en-GB',{hour12:false});
+  logs.push({type,msg,ts});
+  const el = document.getElementById('termLog');
+  const cls = {info:'li',warn:'lw',error:'le',ok:'lo'}[type]||'';
+  const tag = {info:'INFO',warn:'WARN',error:'ERR ',ok:' OK '}[type]||type;
+  el.innerHTML += `<div class="log-line"><span class="log-ts">${ts}</span><span class="log-tag ${cls}">[${tag}]</span><span class="log-msg">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── VALIDATION ───────────────────────────────────────────
+function validate(c,t) {
+  const issues = [];
+  const fpga = FPGA_DB[c.fpga] || FPGA_DB.xilinx_artix;
+
+  if (t.pclkMHz > fpga.maxClk) issues.push({type:'error',msg:`Pixel clock ${t.pclkMHz.toFixed(2)} MHz exceeds ${fpga.maxClk} MHz max for ${fpga.ide} target.`});
+  if (t.pclkMHz > 165) issues.push({type:'warn',msg:`Pixel clock ${t.pclkMHz.toFixed(2)} MHz exceeds VGA standard 165 MHz. Consider HDMI.`});
+  if (c.hS < 8) issues.push({type:'warn',msg:`H sync width (${c.hS} px) is very narrow. Monitor may not lock.`});
+  if (c.vS < 1) issues.push({type:'error',msg:`V sync width (${c.vS} lines) must be ≥ 1.`});
+  if (c.hFP < 1) issues.push({type:'warn',msg:`H front porch (${c.hFP} px) < 1. Sync may violate VESA timing.`});
+  if (t.activePct < 60) issues.push({type:'warn',msg:`Active duty cycle ${t.activePct.toFixed(1)}% is low. Consider reducing blanking.`});
+  if (t.pclkMHz < 1) issues.push({type:'error',msg:`Pixel clock ${t.pclkMHz.toFixed(3)} MHz too low. Check timing values.`});
+
+  const std640  = t.pclkMHz > 24 && t.pclkMHz < 26.5 && c.hA===640;
+  const std800  = t.pclkMHz > 38 && t.pclkMHz < 42 && c.hA===800;
+  const std1280 = t.pclkMHz > 72 && t.pclkMHz < 76 && c.hA===1280;
+  const std1920 = t.pclkMHz > 146 && t.pclkMHz < 151 && c.hA===1920;
+  if (std640)  issues.push({type:'ok',msg:`VESA VGA 640×480@60Hz compliant. Standard pixel clock ${t.pclkMHz.toFixed(3)} MHz.`});
+  if (std800)  issues.push({type:'ok',msg:`SVGA 800×600@60Hz compliant. Compatible with all VGA monitors.`});
+  if (std1280) issues.push({type:'ok',msg:`HD 1280×720@60Hz compliant. HDTV-compatible timing.`});
+  if (std1920) issues.push({type:'ok',msg:`FHD 1920×1080@60Hz compliant. Standard HDMI timing.`});
+  if (!std640 && !std800 && !std1280 && !std1920 && issues.length===0)
+    issues.push({type:'info',msg:`Custom timing: ${c.hA}×${c.vA}@${c.refresh}Hz — ${t.pclkMHz.toFixed(3)} MHz pixel clock.`});
+
+  return issues;
+}
+
+// ─── UPDATE UI ────────────────────────────────────────────
+function refresh() {
+  readFields();
+  const t = calc(cfg);
+
+  // Header
+  document.getElementById('clkBadge').textContent = `${t.pclkMHz.toFixed(3)} MHz`;
+  document.getElementById('resBadge').textContent = `${cfg.hA} × ${cfg.vA}`;
+  const preset = Object.values(PRESETS).find(p=>p.hA===cfg.hA&&p.vA===cfg.vA&&p.vFP===cfg.vFP);
+  document.getElementById('stdBadge').textContent = preset ? preset.std : 'CUSTOM';
+
+  // Stats
+  document.getElementById('s_pclk').innerHTML = `${t.pclkMHz.toFixed(3)}<span class="unit">MHz</span>`;
+  document.getElementById('s_fps').innerHTML  = `${t.fps.toFixed(2)}<span class="unit">fps</span>`;
+  document.getElementById('s_lfreq').innerHTML= `${t.lFreqkHz.toFixed(2)}<span class="unit">kHz</span>`;
+  document.getElementById('s_bw').innerHTML   = `${t.bwGbps.toFixed(3)}<span class="unit">Gbps</span>`;
+
+  // Clock utilization bar
+  const fpga = FPGA_DB[cfg.fpga] || FPGA_DB.xilinx_artix;
+  const clkPct = Math.min(100, t.pclkMHz / fpga.maxClk * 100);
+  const bar = document.getElementById('clkBar');
+  bar.style.width = clkPct.toFixed(1)+'%';
+  bar.className = 'progress-fill' + (clkPct > 90 ? ' red' : clkPct > 70 ? ' amber' : '');
+  document.getElementById('clkUsageLbl').textContent = `${t.pclkMHz.toFixed(3)} / ${fpga.maxClk} MHz  (${clkPct.toFixed(1)}% of max)`;
+
+  // Timing table
+  const rows = [
+    ['H Total', t.hT + ' px'],
+    ['V Total', t.vT + ' lines'],
+    ['H Active', cfg.hA + ' px'],
+    ['H Front Porch', cfg.hFP + ' px'],
+    ['H Sync Width', cfg.hS + ' px'],
+    ['H Back Porch', cfg.hBP + ' px'],
+    ['V Active', cfg.vA + ' lines'],
+    ['V Front Porch', cfg.vFP + ' lines'],
+    ['V Sync Width', cfg.vS + ' lines'],
+    ['V Back Porch', cfg.vBP + ' lines'],
+    ['H Sync Polarity', cfg.hp > 0 ? '(+) Positive' : '(−) Negative'],
+    ['V Sync Polarity', cfg.vp > 0 ? '(+) Positive' : '(−) Negative'],
+    ['H Blank %', t.hBlankPct.toFixed(1) + ' %'],
+    ['V Blank %', t.vBlankPct.toFixed(1) + ' %'],
+    ['Active Duty', t.activePct.toFixed(2) + ' %'],
+  ];
+  document.getElementById('timingTable').innerHTML = rows.map(r=>
+    `<tr><td>${r[0]}</td><td style="color:var(--cyan)">${r[1]}</td></tr>`
+  ).join('');
+
+  // Utilities
+  document.getElementById('u_hTotal').textContent = t.hT;
+  document.getElementById('u_vTotal').textContent = t.vT;
+  document.getElementById('u_active').textContent = t.activePct.toFixed(1)+'%';
+  document.getElementById('u_fb').textContent = t.fbMiB.toFixed(2)+' MiB';
+  document.getElementById('u_lineT').textContent = t.lineUs.toFixed(2)+'μs';
+  document.getElementById('u_frameT').textContent = t.frameMs.toFixed(2)+'ms';
+
+  updateFpgaInfo();
+  updateCode();
+
+  // Validation logs
+  const issues = validate(cfg, t);
+  issues.forEach(i => addLog(i.type, i.msg));
+
+  drawWaveform();
+  drawCRT();
+}
+
+function updateCode() {
+  const t = calc(cfg);
+  let html = '';
+  if (codeTab === 'verilog')  html = genVerilog(cfg, t);
+  else if (codeTab === 'sv')  html = genSV(cfg, t);
+  else if (codeTab === 'vhdl') html = genVHDL(cfg, t);
+  else if (codeTab === 'tcl') html = genTCL(cfg, t);
+  document.getElementById('codeBlock').innerHTML = html;
+}
+
+// ─── WAVEFORM CANVAS ──────────────────────────────────────
+const COLORS = {
+  active: 'rgba(34,211,238,0.25)',
+  activeLine: '#22d3ee',
+  fp: 'rgba(251,191,36,0.18)',
+  fpLine: '#fbbf24',
+  sync: 'rgba(248,113,113,0.22)',
+  syncLine: '#f87171',
+  bp: 'rgba(111,168,255,0.18)',
+  bpLine: '#6fa8ff',
+  grid: 'rgba(255,255,255,0.04)',
+  gridLine: 'rgba(255,255,255,0.07)',
+  cursor: 'rgba(34,211,238,0.5)',
+  text: '#4b5a6e',
+  sigText: '#7d8fa8',
+};
+
+function drawWaveform() {
+  const canvas = document.getElementById('waveCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const t = calc(cfg);
+
+  // Background grid
+  ctx.fillStyle = '#070910';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = COLORS.grid;
+  ctx.lineWidth = 1;
+  for (let x = 60; x < W; x += (W-60)/16) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += H/8)          { ctx.beginPath(); ctx.moveTo(60,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  const leftW = 60;
+  const plotW = W - leftW - 10;
+  const signals = [
+    { name:'HSYNC',  height: 0.14 },
+    { name:'VSYNC',  height: 0.14 },
+    { name:'DE',     height: 0.14 },
+    { name:'H_CNT',  height: 0.22 },
+    { name:'V_CNT',  height: 0.22 },
+  ];
+  let yOff = 14;
+  const rowH = (H - yOff - 8) / signals.length;
+
+  // Draw region legend at top
+  const legend = [
+    {label:'ACTIVE', color: COLORS.activeLine},
+    {label:'FRONT PORCH', color: COLORS.fpLine},
+    {label:'SYNC', color: COLORS.syncLine},
+    {label:'BACK PORCH', color: COLORS.bpLine},
+  ];
+  let lx = leftW + 4;
+  legend.forEach(l => {
+    ctx.fillStyle = l.color; ctx.fillRect(lx, 3, 10, 7);
+    ctx.fillStyle = '#4b5a6e'; ctx.font = '8px JetBrains Mono,monospace';
+    ctx.fillText(l.label, lx + 13, 10);
+    lx += ctx.measureText(l.label).width + 24;
+  });
+
+  // For each signal row
+  signals.forEach((sig, si) => {
+    const y0 = yOff + si * rowH;
+    const midY = y0 + rowH / 2;
+    const hiY  = y0 + rowH * 0.15;
+    const loY  = y0 + rowH * 0.85;
+
+    // Signal label
+    ctx.fillStyle = COLORS.sigText;
+    ctx.font = '9px JetBrains Mono,monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(sig.name, leftW - 5, midY + 3);
+    ctx.textAlign = 'left';
+
+    // Row separator
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(leftW, y0+rowH-1); ctx.lineTo(W, y0+rowH-1); ctx.stroke();
+
+    const hT = t.hT;
+    // Pixel fractions for each H region
+    const aEnd  = cfg.hA   / hT;
+    const fpEnd = (cfg.hA + cfg.hFP) / hT;
+    const sEnd  = (cfg.hA + cfg.hFP + cfg.hS) / hT;
+
+    function px(frac) { return leftW + frac * plotW; }
+    function drawRegionBg(x0f, x1f, col) {
+      ctx.fillStyle = col;
+      ctx.fillRect(px(x0f), y0+1, (x1f-x0f)*plotW, rowH-2);
+    }
+    function drawWire(x0f, x1f, yFrom, yTo, col) {
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(px(x0f), yFrom);
+      if (yFrom !== yTo) { ctx.lineTo(px(x0f), yTo); }
+      ctx.lineTo(px(x1f), yTo); ctx.stroke();
+    }
+
+    if (sig.name === 'HSYNC') {
+      drawRegionBg(0, aEnd, COLORS.active);
+      drawRegionBg(aEnd, fpEnd, COLORS.fp);
+      drawRegionBg(fpEnd, sEnd, COLORS.sync);
+      drawRegionBg(sEnd, 1, COLORS.bp);
+      // Waveform: high except during sync
+      const sPol = cfg.hp < 0 ? loY : hiY;  // sync level
+      const nPol = cfg.hp < 0 ? hiY : loY;
+      drawWire(0, fpEnd, nPol, nPol, COLORS.activeLine);
+      drawWire(fpEnd, sEnd, nPol, sPol, COLORS.syncLine);
+      drawWire(sEnd, 1, sPol, nPol, COLORS.bpLine);
+      // Labels
+      const regions = [{x:0,w:aEnd,lbl:'ACTIVE'},{x:aEnd,w:fpEnd-aEnd,lbl:'FP'},{x:fpEnd,w:sEnd-fpEnd,lbl:'SYNC'},{x:sEnd,w:1-sEnd,lbl:'BP'}];
+      regions.forEach(r=>{
+        if (r.w * plotW > 20) {
+          ctx.fillStyle = COLORS.text; ctx.font = '8px JetBrains Mono,monospace'; ctx.textAlign='center';
+          ctx.fillText(r.lbl, px(r.x + r.w/2), y0+rowH-4);
+        }
+      });
+      ctx.textAlign = 'left';
+    }
+
+    if (sig.name === 'VSYNC') {
+      const vT = t.vT;
+      const vaEnd  = cfg.vA / vT;
+      const vfpEnd = (cfg.vA + cfg.vFP) / vT;
+      const vsEnd  = (cfg.vA + cfg.vFP + cfg.vS) / vT;
+      drawRegionBg(0, vaEnd, COLORS.active);
+      drawRegionBg(vaEnd, vfpEnd, COLORS.fp);
+      drawRegionBg(vfpEnd, vsEnd, COLORS.sync);
+      drawRegionBg(vsEnd, 1, COLORS.bp);
+      const sPol = cfg.vp < 0 ? loY : hiY;
+      const nPol = cfg.vp < 0 ? hiY : loY;
+      drawWire(0, vfpEnd, nPol, nPol, COLORS.activeLine);
+      drawWire(vfpEnd, vsEnd, nPol, sPol, COLORS.syncLine);
+      drawWire(vsEnd, 1, sPol, nPol, COLORS.bpLine);
+      ctx.fillStyle = COLORS.text; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center';
+      ctx.fillText('V ACTIVE', px(vaEnd/2), y0+rowH-4);
+      ctx.fillText('V BLANK', px((vaEnd+1)/2), y0+rowH-4);
+      ctx.textAlign='left';
+    }
+
+    if (sig.name === 'DE') {
+      drawRegionBg(0, aEnd, COLORS.active);
+      drawRegionBg(aEnd, 1, 'rgba(0,0,0,0.2)');
+      drawWire(0, aEnd, hiY, hiY, COLORS.activeLine);
+      drawWire(aEnd, 1, hiY, loY, COLORS.text);
+    }
+
+    if (sig.name === 'H_CNT') {
+      // Draw a ramp shape
+      const grad = ctx.createLinearGradient(px(0),0,px(1),0);
+      grad.addColorStop(0,'rgba(34,211,238,0.15)');
+      grad.addColorStop(aEnd,'rgba(34,211,238,0.05)');
+      grad.addColorStop(fpEnd,'rgba(251,191,36,0.08)');
+      grad.addColorStop(sEnd,'rgba(248,113,113,0.1)');
+      grad.addColorStop(1,'rgba(111,168,255,0.05)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(px(0),hiY,(plotW),loY-hiY);
+      ctx.strokeStyle='rgba(34,211,238,0.5)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(px(0),loY); ctx.lineTo(px(1),hiY); ctx.stroke();
+      ctx.strokeStyle=COLORS.syncLine; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(px(1),hiY); ctx.lineTo(px(1),loY); ctx.stroke();
+      // tick labels
+      ctx.fillStyle=COLORS.text; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center';
+      ctx.fillText('0', px(0)+4, loY-2);
+      ctx.fillText(t.hT, px(1)-4, loY-2);
+      ctx.fillText(cfg.hA, px(aEnd), hiY+10);
+      ctx.textAlign='left';
+    }
+
+    if (sig.name === 'V_CNT') {
+      const vT2 = t.vT;
+      const vaEnd = cfg.vA / vT2;
+      const grad = ctx.createLinearGradient(px(0),0,px(1),0);
+      grad.addColorStop(0,'rgba(111,168,255,0.15)');
+      grad.addColorStop(vaEnd,'rgba(111,168,255,0.05)');
+      grad.addColorStop(1,'rgba(111,168,255,0.02)');
+      ctx.fillStyle=grad; ctx.fillRect(px(0),hiY,plotW,loY-hiY);
+      ctx.strokeStyle='rgba(111,168,255,0.5)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(px(0),loY); ctx.lineTo(px(1),hiY); ctx.stroke();
+      ctx.strokeStyle=COLORS.syncLine; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(px(1),hiY); ctx.lineTo(px(1),loY); ctx.stroke();
+      ctx.fillStyle=COLORS.text; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center';
+      ctx.fillText('0', px(0)+4, loY-2);
+      ctx.fillText(t.vT, px(1)-4, loY-2);
+      ctx.fillText(cfg.vA, px(vaEnd), hiY+10);
+      ctx.textAlign='left';
+    }
+  });
+
+  // Animated cursor
+  const curFrac = (animT % 1);
+  const curX = leftW + curFrac * plotW;
+  ctx.strokeStyle = COLORS.cursor;
+  ctx.setLineDash([3,3]);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(curX, 14); ctx.lineTo(curX, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Time axis label
+  const hT2 = t.hT;
+  const timeFrac = curFrac;
+  const pixelAt = Math.round(timeFrac * hT2);
+  ctx.fillStyle = COLORS.cursor;
+  ctx.font = '8px JetBrains Mono,monospace';
+  ctx.fillText(`px:${pixelAt}`, curX+2, H-2);
+}
+
+// ─── CRT CANVAS ───────────────────────────────────────────
+let crtAnimId = null;
+function drawCRT() {
+  const canvas = document.getElementById('crtCanvas');
+  const t = calc(cfg);
+  let frame = 0;
+
+  if (crtAnimId) cancelAnimationFrame(crtAnimId);
+  const W = canvas.width, H = canvas.height;
+
+  // Monitor layout
+  const bezelW = 18, bezelH = 14;
+  const screenW = W - bezelW*2;
+  const screenH = H - bezelH*2;
+
+  // Proportional regions
+  const hT = t.hT, vT = t.vT;
+  const aW = Math.round(screenW * cfg.hA / hT);
+  const aH = Math.round(screenH * cfg.vA / vT);
+  const fpX = bezelW + aW;
+  const fpW = Math.round(screenW * cfg.hFP / hT);
+  const sX  = fpX + fpW;
+  const sW  = Math.round(screenW * cfg.hS / hT);
+  const bpX = sX + sW;
+  const bpW = screenW - aW - fpW - sW;
+
+  function drawFrame() {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // Bezel
+    const g = ctx.createRadialGradient(W/2,H/2,10,W/2,H/2,Math.max(W,H));
+    g.addColorStop(0,'#1a2030'); g.addColorStop(1,'#0e1320');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(0,0,W,H,6); ctx.fill();
+
+    // Screen background
+    ctx.fillStyle = '#020408';
+    ctx.fillRect(bezelW, bezelH, screenW, screenH);
+
+    // Region fills
+    ctx.fillStyle = 'rgba(251,191,36,0.06)'; ctx.fillRect(fpX,bezelH,fpW,screenH);
+    ctx.fillStyle = 'rgba(248,113,113,0.08)'; ctx.fillRect(sX,bezelH,sW,screenH);
+    ctx.fillStyle = 'rgba(111,168,255,0.05)'; ctx.fillRect(bpX,bezelH,bpW,screenH);
+
+    // Active video area - draw pixels
+    const scanPos = (frame * 0.8) % (aH + 20);
+    for (let row = 0; row < Math.min(scanPos, aH); row++) {
+      const brightness = row < scanPos - 1 ? 0.7 : 1.0;
+      const y = bezelH + Math.round(screenH * row * cfg.vA / (vT * cfg.vA));
+      // Color based on row position for visual interest
+      const hue = (row / aH * 120 + 180) % 360;
+      const r = Math.round(20 + Math.sin(row*0.1)*15);
+      const g2 = Math.round(40 + Math.cos(row*0.07)*20);
+      const b2 = Math.round(60 + Math.sin(row*0.05)*20);
+      ctx.fillStyle = `rgba(${r},${g2},${b2},${brightness*0.9})`;
+      if (row < screenH) ctx.fillRect(bezelW, y, aW, Math.max(1, Math.round(screenH/cfg.vA)+1));
+    }
+
+    // Scan beam glow
+    if (scanPos < aH) {
+      const beamY = bezelH + Math.round(screenH * scanPos * cfg.vA / (vT * cfg.vA));
+      const grd = ctx.createLinearGradient(0,beamY-8,0,beamY+4);
+      grd.addColorStop(0,'rgba(34,211,238,0)');
+      grd.addColorStop(0.6,'rgba(34,211,238,0.12)');
+      grd.addColorStop(1,'rgba(34,211,238,0.35)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(bezelW, beamY-8, aW, 12);
+      ctx.fillStyle = 'rgba(34,211,238,0.7)';
+      ctx.fillRect(bezelW, beamY, aW, 1);
+    }
+
+    // Region labels
+    ctx.font = '7px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+    const lblY = bezelH + screenH - 5;
+    ctx.fillStyle='rgba(34,211,238,0.5)'; ctx.fillText('ACTIVE', bezelW + aW/2, lblY);
+    if (fpW > 15) { ctx.fillStyle='rgba(251,191,36,0.5)'; ctx.fillText('FP', fpX+fpW/2, lblY); }
+    if (sW > 10)  { ctx.fillStyle='rgba(248,113,113,0.5)'; ctx.fillText('S', sX+sW/2, lblY); }
+    if (bpW > 15) { ctx.fillStyle='rgba(111,168,255,0.5)'; ctx.fillText('BP', bpX+bpW/2, lblY); }
+
+    // V region borders
+    const vaY = bezelH + Math.round(screenH * cfg.vA / vT);
+    ctx.strokeStyle='rgba(251,191,36,0.2)'; ctx.lineWidth=1; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.moveTo(bezelW,vaY); ctx.lineTo(W-bezelW,vaY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Bezel border glow
+    ctx.strokeStyle='rgba(34,211,238,0.12)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(bezelW-1,bezelH-1,screenW+2,screenH+2,1); ctx.stroke();
+    ctx.strokeStyle='rgba(34,211,238,0.06)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(1,1,W-2,H-2,6); ctx.stroke();
+
+    // Corner indicators
+    ctx.fillStyle='rgba(34,211,238,0.15)';
+    [[bezelW-3,bezelH-3],[W-bezelW-2,bezelH-3],[bezelW-3,H-bezelH-2],[W-bezelW-2,H-bezelH-2]]
+      .forEach(([cx,cy])=>ctx.fillRect(cx,cy,5,5));
+
+    // Scanlines overlay
+    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=1;
+    for (let y=bezelH; y<bezelH+screenH; y+=2) {
+      ctx.beginPath(); ctx.moveTo(bezelW,y); ctx.lineTo(W-bezelW,y); ctx.stroke();
+    }
+
+    frame++;
+    crtAnimId = requestAnimationFrame(drawFrame);
+  }
+  drawFrame();
+}
+
+// ─── WAVEFORM ANIMATION ───────────────────────────────────
+let waveAnimId = null;
+function animateWave() {
+  animT += 0.002;
+  drawWaveform();
+  waveAnimId = requestAnimationFrame(animateWave);
+}
+
+// ─── ACTIONS ──────────────────────────────────────────────
+function copyCode() {
+  const pre = document.getElementById('codeBlock');
+  navigator.clipboard.writeText(pre.innerText).then(()=>{
+    addLog('ok', 'Code copied to clipboard.');
+  });
+}
+
+function downloadCode(ext) {
+  const t = calc(cfg);
+  const content = plainCode(cfg, t, codeTab);
+  const blob = new Blob([content], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `vga_controller_${cfg.hA}x${cfg.vA}_${cfg.refresh}hz.v`;
+  a.click();
+  addLog('ok', `Downloaded vga_controller_${cfg.hA}x${cfg.vA}_${cfg.refresh}hz.v`);
+}
+
+function exportJSON() {
+  const t = calc(cfg);
+  const data = JSON.stringify({config:cfg, timing:t, generated: new Date().toISOString()}, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `vga_timing_${cfg.hA}x${cfg.vA}.json`; a.click();
+  addLog('ok', `Exported JSON config: vga_timing_${cfg.hA}x${cfg.vA}.json`);
+}
+
+function exportTestbench() {
+  const t = calc(cfg);
+  const tb = `\`timescale 1ns / 1ps
+// VGA Controller Testbench — ${cfg.hA}×${cfg.vA} @ ${cfg.refresh}Hz
+// Pixel Clock: ${t.pclkMHz.toFixed(3)} MHz  Period: ${(1000/t.pclkMHz).toFixed(4)} ns
+
+module vga_controller_tb;
+  reg  clk, rst_n;
+  wire hsync, vsync, active_video;
+  wire [11:0] h_count, v_count;
+
+  // DUT
+  vga_controller #(
+    .H_ACTIVE(${cfg.hA}), .H_FRONT(${cfg.hFP}), .H_SYNC(${cfg.hS}), .H_BACK(${cfg.hBP}),
+    .V_ACTIVE(${cfg.vA}), .V_FRONT(${cfg.vFP}), .V_SYNC(${cfg.vS}), .V_BACK(${cfg.vBP})
+  ) uut (
+    .clk(clk), .rst_n(rst_n),
+    .hsync(hsync), .vsync(vsync),
+    .active_video(active_video),
+    .h_count(h_count), .v_count(v_count)
+  );
+
+  // Clock: ${t.pclkMHz.toFixed(3)} MHz
+  localparam CLK_PERIOD = ${(1000/t.pclkMHz).toFixed(4)};
+  initial clk = 0;
+  always #(CLK_PERIOD/2.0) clk = ~clk;
+
+  // Reset and run 3 frames
+  initial begin
+    rst_n = 0; #(CLK_PERIOD*10);
+    rst_n = 1;
+    repeat (3) @(posedge vsync);
+    $display("PASS: 3 frames completed"); $finish;
+  end
+
+  // Monitor
+  initial $monitor("t=%0t h=%0d v=%0d hs=%b vs=%b de=%b",
+    $time, h_count, v_count, hsync, vsync, active_video);
+
+endmodule`;
+  const blob = new Blob([tb], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `vga_tb_${cfg.hA}x${cfg.vA}.v`; a.click();
+  addLog('ok', `Exported testbench: vga_tb_${cfg.hA}x${cfg.vA}.v`);
+}
+
+function exportConstraints() {
+  const t = calc(cfg);
+  const xdc = `# Vivado XDC — VGA ${cfg.hA}×${cfg.vA} @ ${cfg.refresh}Hz
+# Pixel clock: ${t.pclkMHz.toFixed(3)} MHz
+
+create_clock -name sys_clk -period 10.000 [get_ports clk]
+set_property IOSTANDARD LVCMOS33 [get_ports {hsync vsync vga_r[*] vga_g[*] vga_b[*]}]
+set_property DRIVE 8 [get_ports {vga_r[*] vga_g[*] vga_b[*]}]
+set_property SLEW SLOW [get_ports {vga_r[*] vga_g[*] vga_b[*]}]`;
+  const blob = new Blob([xdc], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `vga_${cfg.hA}x${cfg.vA}.xdc`; a.click();
+  addLog('ok', `Exported constraints: vga_${cfg.hA}x${cfg.vA}.xdc`);
+}
+
+// ─── PRESET GRID BUILD ────────────────────────────────────
+function buildPresets() {
+  const grid = document.getElementById('presetGrid');
+  Object.entries(PRESETS).forEach(([key, p]) => {
+    const btn = document.createElement('button');
+    btn.className = 'pbtn' + (key === activePreset ? ' act' : '');
+    btn.innerHTML = `${p.lbl}<span class="pstd">${p.std} · ${p.hz}Hz</span>`;
+    btn.onclick = () => applyPreset(key);
+    grid.appendChild(btn);
+  });
+  // Custom button
+  const custom = document.createElement('button');
+  custom.className = 'pbtn'; custom.id = 'customBtn';
+  custom.innerHTML = 'Custom<span class="pstd">Manual</span>';
+  custom.onclick = () => { addLog('info','Custom timing mode — edit fields directly.'); activePreset=null; updatePresetBtns(); };
+  grid.appendChild(custom);
+}
+
+function applyPreset(key) {
+  activePreset = key;
+  const p = PRESETS[key];
+  cfg.hA=p.hA; cfg.hFP=p.hFP; cfg.hS=p.hS; cfg.hBP=p.hBP;
+  cfg.vA=p.vA; cfg.vFP=p.vFP; cfg.vS=p.vS; cfg.vBP=p.vBP;
+  cfg.hp=p.hp; cfg.vp=p.vp; cfg.refresh=p.hz;
+  setFields(cfg);
+  setPol('h', p.hp > 0 ? 'pos' : 'neg');
+  setPol('v', p.vp > 0 ? 'pos' : 'neg');
+  document.getElementById('refreshSlider').value = p.hz;
+  document.getElementById('refreshDisp').textContent = p.hz;
+  updatePresetBtns();
+  addLog('info', `Preset: ${p.lbl} @ ${p.hz}Hz (${p.std})`);
+  refresh();
+}
+
+function updatePresetBtns() {
+  document.querySelectorAll('.pbtn').forEach(b=>{
+    b.classList.remove('act');
+  });
+  if (activePreset) {
+    const btns = document.querySelectorAll('.pbtn');
+    const idx = Object.keys(PRESETS).indexOf(activePreset);
+    if (idx >= 0 && btns[idx]) btns[idx].classList.add('act');
+  }
+}
+
+// ─── EVENT LISTENERS ──────────────────────────────────────
+function bindInputs() {
+  ['hA','hFP','hS','hBP','vA','vFP','vS','vBP'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      activePreset = null; updatePresetBtns(); refresh();
+    });
+  });
+  document.getElementById('refreshSlider').addEventListener('input', e => {
+    const hz = +e.target.value;
+    cfg.refresh = hz;
+    document.getElementById('refreshDisp').textContent = hz;
+    activePreset = null; updatePresetBtns(); refresh();
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  buildPresets();
+  bindInputs();
+  setPol('h','neg'); setPol('v','neg');
+  document.getElementById('bit8').classList.add('act');
+
+  // Resize canvas
+  const wc = document.getElementById('waveCanvas');
+  new ResizeObserver(()=>{ refresh(); }).observe(wc.parentElement);
+
+  addLog('ok', 'VGA Timing Studio initialized. Target: Xilinx Artix-7.');
+  addLog('info', `Loaded preset: 640×480 @ 60Hz (VGA) — 25.175 MHz pixel clock.`);
+  addLog('info', 'Select a preset or edit timing parameters manually.');
+  refresh();
+  animateWave();
+});
+</script>
+</body>
+</html>
